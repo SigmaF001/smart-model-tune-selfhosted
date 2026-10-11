@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   api: {
     get: vi.fn(),
     post: vi.fn(),
+    put: vi.fn(),
     patch: vi.fn(),
     delete: vi.fn(),
     postForm: vi.fn(),
@@ -23,6 +24,9 @@ vi.mock('@/api/client', () => ({
 }))
 
 import * as datasets from '@/api/endpoints/datasets'
+import * as analytics from '@/api/endpoints/analytics'
+import * as apiKeys from '@/api/endpoints/apiKeys'
+import * as deployments from '@/api/endpoints/deployments'
 import * as evaluations from '@/api/endpoints/evaluations'
 import * as inference from '@/api/endpoints/inference'
 import * as jobs from '@/api/endpoints/jobs'
@@ -31,6 +35,7 @@ import * as models from '@/api/endpoints/models'
 import * as projects from '@/api/endpoints/projects'
 import * as system from '@/api/endpoints/system'
 import * as trainings from '@/api/endpoints/trainings'
+import * as templates from '@/api/endpoints/templates'
 import * as usage from '@/api/endpoints/usage'
 
 describe('OpenAPI endpoint wrappers', () => {
@@ -59,6 +64,7 @@ describe('OpenAPI endpoint wrappers', () => {
     datasets.listDatasets({ project_id: 'p1' })
     datasets.getDataset('d1')
     datasets.previewDataset('d1', 10)
+    datasets.getDatasetInsights('d1')
     datasets.uploadSeedDataset({ project_id: 'p1', task_type: 'qa', file })
     datasets.generateDataset({
       sdg_mode: 'with_seed', project_id: 'p1', task_type: 'qa', task_description: 'Answer questions',
@@ -71,11 +77,40 @@ describe('OpenAPI endpoint wrappers', () => {
     expect(datasets.datasetDownloadUrl('d1')).toBe('/api/v1/datasets/d1/download')
     expect(mocks.api.get).toHaveBeenCalledWith('/api/v1/datasets?project_id=p1')
     expect(mocks.api.get).toHaveBeenCalledWith('/api/v1/datasets/d1/preview?limit=10')
+    expect(mocks.api.get).toHaveBeenCalledWith('/api/v1/datasets/d1/insights')
     expect(mocks.api.postForm).toHaveBeenCalledWith('/api/v1/datasets/upload-seed', expect.any(FormData))
     expect(mocks.api.post).toHaveBeenCalledWith('/api/v1/datasets/generate', expect.objectContaining({ seed_dataset_id: 'seed1' }), { idempotencyKey: 'idem' })
     expect(mocks.api.get).toHaveBeenCalledWith('/api/v1/datasets/d1/download-url?disposition=inline')
     expect(mocks.api.post).toHaveBeenCalledWith('/api/v1/datasets/d1/cancel')
     expect(mocks.api.delete).toHaveBeenCalledWith('/api/v1/datasets/d1')
+  })
+
+  it('covers the current analytics, deployment, API key, and template resources', () => {
+    analytics.getAnalytics({ from: '2026-09-01', project_id: 'p1' })
+    deployments.listDeployments({ status: 'running', limit: 20 })
+    deployments.getDeployment('dep1')
+    deployments.createDeployment({ model_artifact_id: 'm1' }, 'idem')
+    deployments.updateDeployment('dep1', { rate_limit_per_min: 10 })
+    deployments.stopDeployment('dep1')
+    deployments.deleteDeployment('dep1')
+    apiKeys.listApiKeys({ limit: 20 })
+    apiKeys.createApiKey({ name: 'local test' })
+    apiKeys.revokeApiKey('key1')
+    templates.listTemplates({ featured: true, sort: 'rating' })
+    templates.rateTemplate('template1', 5)
+
+    expect(mocks.api.get).toHaveBeenCalledWith('/api/v1/analytics?from=2026-09-01&project_id=p1')
+    expect(mocks.api.get).toHaveBeenCalledWith('/api/v1/deployments?status=running&limit=20')
+    expect(mocks.api.get).toHaveBeenCalledWith('/api/v1/deployments/dep1')
+    expect(mocks.api.post).toHaveBeenCalledWith('/api/v1/deployments', { model_artifact_id: 'm1' }, { idempotencyKey: 'idem' })
+    expect(mocks.api.patch).toHaveBeenCalledWith('/api/v1/deployments/dep1', { rate_limit_per_min: 10 })
+    expect(mocks.api.post).toHaveBeenCalledWith('/api/v1/deployments/dep1/stop')
+    expect(mocks.api.delete).toHaveBeenCalledWith('/api/v1/deployments/dep1')
+    expect(mocks.api.get).toHaveBeenCalledWith('/api/v1/api-keys?limit=20')
+    expect(mocks.api.post).toHaveBeenCalledWith('/api/v1/api-keys', { name: 'local test' })
+    expect(mocks.api.delete).toHaveBeenCalledWith('/api/v1/api-keys/key1')
+    expect(mocks.api.get).toHaveBeenCalledWith('/api/v1/templates?featured=true&sort=rating')
+    expect(mocks.api.put).toHaveBeenCalledWith('/api/v1/templates/template1/rating', { rating: 5 })
   })
 
   it('covers training and model lifecycle endpoints', () => {

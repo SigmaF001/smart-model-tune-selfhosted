@@ -1,0 +1,14 @@
+# Merge into the BACKEND Compose project (see README).
+services:
+  api:
+    environment:
+      OIDC_ISSUER: ${TUNELAB_OIDC_ISSUER:-http://localhost:5173/auth/realms/tunelab}
+      OIDC_JWKS_URL: http://tunelab-keycloak:8080/auth/realms/tunelab/protocol/openid-connect/certs
+      OIDC_AUDIENCE: tunelab-api
+      AUTH_REQUIRED: "true"
+    networks: [slm-net, tunelab-auth]
+
+networks:
+  tunelab-auth:
+    external: true
+    name: tunelab-auth

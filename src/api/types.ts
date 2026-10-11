@@ -36,6 +36,151 @@ export interface Page<T> {
   offset: number
 }
 
+// --- Current product resources -------------------------------------------------
+
+/** Owner-scoped aggregate returned by `GET /api/v1/analytics`. */
+export interface StatusCounts {
+  pending: number
+  running: number
+  completed: number
+  failed: number
+  cancelled: number
+}
+
+export interface AnalyticsTotals {
+  jobs_total: number
+  by_status: StatusCounts
+  prompt_tokens: number
+  completion_tokens: number
+  cost_usd: string | null
+  has_unpriced_usage: boolean
+}
+
+export interface AnalyticsStage {
+  stage: string
+  total: number
+  by_status: StatusCounts
+  avg_duration_seconds: number | null
+  avg_queue_wait_seconds: number | null
+}
+
+export interface AnalyticsSeriesPoint {
+  date: string
+  sdg: number
+  training: number
+  evaluation: number
+  completed: number
+  failed: number
+  cost_usd: string | null
+}
+
+export interface AnalyticsResponse {
+  period_from: string
+  period_to: string
+  project_id: string | null
+  totals: AnalyticsTotals
+  stages: AnalyticsStage[]
+  series: AnalyticsSeriesPoint[]
+}
+
+export interface DeploymentCreate {
+  model_artifact_id: string
+  name?: string | null
+}
+
+export interface DeploymentUpdate {
+  name?: string | null
+  rate_limit_per_min?: number | null
+}
+
+export interface Deployment {
+  id: string
+  name: string
+  model_artifact_id: string | null
+  model_tag: string | null
+  status: JobStatus
+  rate_limit_per_min: number
+  job_id: string | null
+  error_message: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ApiKeyCreate { name: string }
+
+export interface ApiKey {
+  id: string
+  name: string
+  prefix: string
+  last4: string
+  status: 'active' | 'revoked'
+  created_at: string
+  last_used_at: string | null
+}
+
+export interface ApiKeyCreated extends ApiKey { key: string }
+
+export interface Template {
+  id: string
+  version: string
+  name: string
+  description: string
+  long_description: string
+  category: string
+  task_type: TaskType
+  base_model: string
+  prompt: string
+  epochs: number
+  learning_rate: number
+  dataset_size: number
+  forks: number
+  author: string
+  tags: string[]
+  featured: boolean
+  available: boolean
+  unavailable_reason: string | null
+  split_counts: Record<string, number>
+  source_attribution: Record<string, unknown> | null
+  rating: number | null
+  rating_count: number
+  my_rating: number | null
+}
+
+export interface TemplateRatingResponse {
+  rating: number | null
+  rating_count: number
+  my_rating: number | null
+}
+
+export interface InsightLabelCount { label: string; count: number; percent: number }
+export interface InsightLengthBucket { bucket: string; count: number }
+export interface InsightIssue {
+  id: string
+  severity: 'critical' | 'warning' | 'info'
+  category: string
+  title: string
+  description: string
+  affected_rows: number
+  suggestion: string
+}
+
+export interface DatasetInsights {
+  dataset_id: string
+  task_type: TaskType
+  row_count: number
+  scanned_rows: number
+  scan_truncated: boolean
+  label_distribution: InsightLabelCount[]
+  near_duplicate_count: number
+  duplicate_rows: number
+  missing_labels: number
+  outliers: number
+  length_distribution: InsightLengthBucket[]
+  issues: InsightIssue[]
+  overall_quality_score: number
+  readiness: 'ready' | 'caveats' | 'fix'
+}
+
 export interface ErrorBody {
   detail: string
   code?: string | null
@@ -48,6 +193,16 @@ export interface ProjectCreate {
   name: string
   description?: string | null
   task_type: TaskType
+  template_id?: string | null
+  template_version?: string | null
+  template_overrides?: {
+    base_model?: string | null
+    system_prompt?: string | null
+    epochs?: number | null
+    learning_rate?: number | null
+    train_sample_count?: number | null
+    sampling_seed?: number | null
+  } | null
   external_project_id?: string | null
 }
 

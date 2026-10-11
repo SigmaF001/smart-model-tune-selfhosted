@@ -89,20 +89,34 @@ export async function getAccessToken(): Promise<string | null> {
   return keycloak.token ?? null;
 }
 
+export function safeRedirectPath(path = '/dashboard'): string {
+  try {
+    const url = new URL(path, window.location.origin)
+    if (url.origin !== window.location.origin || !path.startsWith('/') || path.startsWith('//')) return '/dashboard'
+    if (/^\/(login|signup|mfa|forgot-password|reset-password)(\/|$)/.test(url.pathname)) return '/dashboard'
+    return url.pathname + url.search + url.hash
+  } catch {
+    return '/dashboard'
+  }
+}
+
 export function signIn(redirectPath = "/dashboard"): Promise<void> {
-  return keycloak.login({ redirectUri: new URL(redirectPath, window.location.origin).toString() });
+  return initAuth().then(() => keycloak.login({ redirectUri: window.location.origin + safeRedirectPath(redirectPath) }))
 }
 
 export function register(redirectPath = "/dashboard"): Promise<void> {
-  return keycloak.register({ redirectUri: new URL(redirectPath, window.location.origin).toString() });
+  return initAuth().then(() => keycloak.register({ redirectUri: window.location.origin + safeRedirectPath(redirectPath) }))
 }
 
-export function signOut(): Promise<void> {
-  return keycloak.logout({ redirectUri: window.location.origin });
+export async function signOut(): Promise<void> {
+  await initAuth()
+  const logoutUrl = keycloak.createLogoutUrl({ redirectUri: window.location.origin + '/' })
+  clearLocalAuth()
+  window.location.assign(logoutUrl)
 }
 
 export function manageAccount(): Promise<void> {
-  return keycloak.accountManagement();
+  return initAuth().then(() => keycloak.accountManagement())
 }
 
 export function clearLocalAuth(): void {

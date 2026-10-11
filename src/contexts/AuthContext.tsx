@@ -1,67 +1,61 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import {
-  getAuthState,
-  initAuth,
-  manageAccount,
-  register,
-  signIn,
-  signOut,
-  subscribeAuth,
-  type AuthProfile,
-  type AuthUser,
-} from "@/auth/keycloak";
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { Loader2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { useLanguage } from '@/i18n/LanguageContext'
+import { getAuthState, initAuth, signOut, subscribeAuth, type AuthState } from '@/auth/keycloak'
 
-interface AuthContextValue {
-  user: AuthUser | null;
-  profile: AuthProfile | null;
-  loading: boolean;
-  authError: string | null;
-  signIn: (redirectPath?: string) => Promise<void>;
-  register: (redirectPath?: string) => Promise<void>;
-  signOut: () => Promise<void>;
-  manageAccount: () => Promise<void>;
+type AuthContextValue = AuthState & {
+  loading: boolean
+  signOut: () => Promise<void>
 }
 
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const initial = getAuthState();
-  const [user, setUser] = useState(initial.user);
-  const [profile, setProfile] = useState(initial.profile);
-  const [loading, setLoading] = useState(true);
-  const [authError, setAuthError] = useState<string | null>(null);
+  const [state, setState] = useState<AuthState>(getAuthState)
+  const [loading, setLoading] = useState(true)
+  const [failed, setFailed] = useState(false)
+  const queryClient = useQueryClient()
+  const { t } = useLanguage()
 
   useEffect(() => {
-    const apply = (state: ReturnType<typeof getAuthState>) => {
-      setUser(state.user);
-      setProfile(state.profile);
-    };
-    const unsubscribe = subscribeAuth(apply);
-    void initAuth()
-      .then(() => apply(getAuthState()))
-      .catch(() => setAuthError("Authentication service is unavailable."))
-      .finally(() => setLoading(false));
-    return unsubscribe;
-  }, []);
+    let active = true
+    let previousUser = getAuthState().user?.id
+    const unsubscribe = subscribeAuth((next) => {
+      if (!active) return
+      if (previousUser !== next.user?.id) queryClient.clear()
+      previousUser = next.user?.id
+      setState(next)
+    })
+    void initAuth().then(() => {
+      if (active) setState(getAuthState())
+    }).catch(() => {
+      if (active) setFailed(true)
+    }).finally(() => {
+      if (active) setLoading(false)
+    })
+    return () => {
+      active = false
+      unsubscribe()
+    }
+  }, [queryClient])
 
+  if (loading || failed) return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-4 text-center">
+      {failed ? <><p role="alert">{t('authPage.failed')}</p><Button onClick={() => window.location.reload()}>{t('authPage.reload')}</Button></> :
+        <div role="status"><Loader2 aria-hidden="true" className="h-6 w-6 animate-spin" /><span className="sr-only">{t('common.loading')}</span></div>}
+    </div>
+  )
   return (
-    <AuthContext.Provider value={{
-      user,
-      profile,
-      loading,
-      authError,
-      signIn,
-      register,
-      signOut,
-      manageAccount,
-    }}>
+    <AuthContext.Provider value={{ ...state, loading, signOut }}>
       {children}
     </AuthContext.Provider>
-  );
+  )
 }
 
 export function useAuth() {
-  const value = useContext(AuthContext);
-  if (!value) throw new Error("useAuth must be used within AuthProvider");
-  return value;
+  const value = useContext(AuthContext)
+  if (!value) throw new Error('useAuth must be used within AuthProvider')
+  return value
 }

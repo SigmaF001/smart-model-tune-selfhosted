@@ -18,10 +18,12 @@ import { formatDateTime, formatNumber } from "@/lib/format";
 import { metricMeta, scalarMetrics } from "@/lib/metrics";
 import { StartEvaluationDialog } from "@/components/evaluation/StartEvaluationDialog";
 
+const API_PUBLIC_ORIGIN = typeof window === "undefined" ? "" : window.location.origin;
+
 const codeExamples = {
   python: `import requests
 
-url = "http://localhost:8000/api/v1/inference/chat/completions"
+url = "${API_PUBLIC_ORIGIN}/api/v1/inference/chat/completions"
 headers = {
     "Content-Type": "application/json",
     "Authorization": "Bearer OIDC_ACCESS_TOKEN"
@@ -37,7 +39,7 @@ payload = {
 
 response = requests.post(url, json=payload, headers=headers)
 print(response.json())`,
-  curl: `curl -X POST http://localhost:8000/api/v1/inference/chat/completions \\
+  curl: `curl -X POST ${API_PUBLIC_ORIGIN}/api/v1/inference/chat/completions \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer OIDC_ACCESS_TOKEN" \\
   -d '{
@@ -48,7 +50,7 @@ print(response.json())`,
     "max_tokens": 512,
     "temperature": 0.7
   }'`,
-  javascript: `const response = await fetch("http://localhost:8000/api/v1/inference/chat/completions", {
+  javascript: `const response = await fetch("${API_PUBLIC_ORIGIN}/api/v1/inference/chat/completions", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",

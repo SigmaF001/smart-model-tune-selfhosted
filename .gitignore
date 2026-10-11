@@ -4,3 +4,6 @@ dist/
 *.local
 coverage/
 .DS_Store
+
+# Deployment-specific public Keycloak keys (export on demand).
+docker/keycloak-jwks.json

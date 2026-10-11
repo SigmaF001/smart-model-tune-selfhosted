@@ -96,6 +96,14 @@ export const api = {
     })
   },
 
+  put<T>(path: string, body: unknown): Promise<T> {
+    return request<T>(path, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  },
+
   delete<T = void>(path: string): Promise<T> {
     return request<T>(path, { method: 'DELETE' })
   },
@@ -105,7 +113,7 @@ export const api = {
   },
 }
 
-export function pageQuery(params: Record<string, string | number | undefined | null>): string {
+export function pageQuery(params: Record<string, string | number | boolean | undefined | null>): string {
   const qs = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined && value !== null && value !== '') qs.set(key, String(value))

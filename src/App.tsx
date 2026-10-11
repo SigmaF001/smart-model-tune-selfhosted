@@ -46,9 +46,9 @@ const App = () => (
                 <Route path="/" element={<Index />} />
                 <Route path="/login" element={<AuthRedirect />} />
                 <Route path="/signup" element={<AuthRedirect mode="register" />} />
-                <Route path="/forgot-password" element={<AuthRedirect />} />
-                <Route path="/reset-password" element={<AuthRedirect />} />
-                <Route path="/mfa" element={<AuthRedirect />} />
+                <Route path="/forgot-password" element={<AuthRedirect mode="forgot" />} />
+                <Route path="/reset-password" element={<AuthRedirect mode="reset" />} />
+                <Route path="/mfa" element={<AuthRedirect mode="mfa" />} />
                 <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/projects" element={<Projects />} />

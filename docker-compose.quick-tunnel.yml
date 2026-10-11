@@ -1,0 +1,12 @@
+# Temporary remote ingress; pass TUNNEL_HOSTNAME from the latest connector log.
+# Use with docker-compose.yml, NOT docker-compose.backend-network.yml.
+# Keycloak tokens require a matching OIDC issuer configured on the backend.
+# /ready is not exposed by the backend edge; UI reports readiness as unknown.
+services:
+  frontend:
+    environment:
+      ENGINE_UPSTREAM_SCHEME: https
+      ENGINE_UPSTREAM: ${TUNNEL_HOSTNAME:?Set TUNNEL_HOSTNAME to the active trycloudflare.com host}:443
+      ENGINE_UPSTREAM_HOST: ${TUNNEL_HOSTNAME:?Set TUNNEL_HOSTNAME to the active trycloudflare.com host}
+      READY_UPSTREAM_SCHEME: https
+      READY_UPSTREAM: ${TUNNEL_HOSTNAME:?Set TUNNEL_HOSTNAME to the active trycloudflare.com host}:443

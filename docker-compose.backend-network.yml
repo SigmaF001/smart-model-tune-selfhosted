@@ -1,0 +1,15 @@
+# Optional: route directly over the backend Docker network, without host ports.
+services:
+  frontend:
+    environment:
+      ENGINE_UPSTREAM_SCHEME: http
+      ENGINE_UPSTREAM: edge:80
+      ENGINE_UPSTREAM_HOST: edge
+      READY_UPSTREAM_SCHEME: http
+      READY_UPSTREAM: api:8000
+    networks: [auth, backend]
+
+networks:
+  backend:
+    external: true
+    name: ${BACKEND_DOCKER_NETWORK:-slm-platform_slm-net}

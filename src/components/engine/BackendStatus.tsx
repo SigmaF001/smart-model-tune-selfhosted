@@ -2,31 +2,40 @@ import { useQuery } from '@tanstack/react-query'
 
 import { getHealth, getReadiness } from '@/api/endpoints/system'
 import { Badge } from '@/components/ui/badge'
+import { useLanguage } from '@/i18n/LanguageContext'
 
 export function BackendStatus() {
+  const { t } = useLanguage()
   const status = useQuery({
     queryKey: ['system', 'status'],
     queryFn: async () => {
-      const [health, readiness] = await Promise.all([getHealth(), getReadiness()])
+      const health = await getHealth()
+      const readiness = await getReadiness().catch(() => null)
       return { health, readiness }
     },
     refetchInterval: 30_000,
     retry: 1,
   })
 
-  const label = status.isError
-    ? 'Engine offline'
-    : status.data?.readiness.status === 'degraded'
-      ? 'Engine degraded'
-      : status.data?.health.status === 'ok'
-        ? 'Engine online'
-        : 'Checking Engine'
-  const className = status.isError
+  const state = status.isError
+    ? 'offline'
+    : !status.data
+      ? 'checking'
+      : status.data.readiness === null
+        ? 'unknown'
+        : status.data.readiness.status === 'ok'
+          ? 'ready'
+          : 'degraded'
+
+  const style = state === 'offline'
     ? 'border-destructive/40 text-destructive'
-    : status.data?.readiness.status === 'degraded'
-      ? 'border-amber-500/40 text-amber-600'
-      : 'border-emerald-500/40 text-emerald-600'
+    : state === 'ready'
+      ? 'border-emerald-500/40 text-emerald-600'
+      : 'border-amber-500/40 text-amber-600'
 
-  return <Badge variant="outline" className={className}>{label}</Badge>
+  return (
+    <Badge variant="outline" className={style} title={t(`backendStatus.${state}Hint`)}>
+      {t(`backendStatus.${state}`)}
+    </Badge>
+  )
 }
-

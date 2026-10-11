@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, ArrowRight, Check, Sparkles, Loader2 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { TaskPromptStep } from "@/components/new-project/TaskPromptStep";
 import { TaskSelectionStep } from "@/components/new-project/TaskSelectionStep";
 import { DataUploadStep } from "@/components/new-project/DataUploadStep";
@@ -46,8 +46,16 @@ export function toErrorDetail(err: unknown): { detail: string; code?: string | n
 }
 
 export default function NewProject() {
+  const location = useLocation();
+  const templateState = (location.state as { template?: { id: string; version: string; name: string; taskType: TaskType; prompt: string; baseModel?: string; epochs?: number; learningRate?: number } } | undefined)?.template;
   const [currentStep, setCurrentStep] = useState(0);
-  const [formData, setFormData] = useState<ProjectFormData>(initialFormData);
+  const [formData, setFormData] = useState<ProjectFormData>(() => templateState ? {
+    ...initialFormData,
+    projectName: templateState.name,
+    taskPrompt: templateState.prompt,
+    taskType: templateState.taskType,
+    baseModel: templateState.baseModel ?? null,
+  } : initialFormData);
   const [engineProject, setEngineProject] = useState<Project | null>(null);
   const [projectError, setProjectError] = useState<{ detail: string; code?: string | null } | null>(null);
   const [launchError, setLaunchError] = useState<{ detail: string; code?: string | null } | null>(null);
@@ -114,6 +122,14 @@ export default function NewProject() {
           name: formData.projectName.trim() || formData.taskPrompt.slice(0, 60) || "Untitled Project",
           description: formData.taskPrompt,
           task_type: formData.taskType!,
+          template_id: templateState?.id,
+          template_version: templateState?.version,
+          template_overrides: templateState ? {
+            base_model: formData.baseModel,
+            system_prompt: formData.taskPrompt,
+            epochs: templateState.epochs,
+            learning_rate: templateState.learningRate,
+          } : undefined,
         });
         setEngineProject(created);
       } catch (e) {
@@ -159,6 +175,12 @@ export default function NewProject() {
             <p className="text-sm text-muted-foreground">{t("newProject.subtitle")}</p>
           </div>
         </div>
+        {templateState && (
+          <div className="flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs text-primary">
+            <Sparkles className="h-3.5 w-3.5 shrink-0" />
+            <span className="font-medium">Template: {templateState.name}</span>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-1">

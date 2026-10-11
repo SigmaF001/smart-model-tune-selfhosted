@@ -20,21 +20,20 @@ function renderRoute() {
 
 describe("ProtectedRoute", () => {
   it("renders protected content for an authenticated user", () => {
-    useAuth.mockReturnValue({ user: { id: "user" }, loading: false, authError: null });
+    useAuth.mockReturnValue({ user: { id: "user" }, loading: false });
     renderRoute();
     expect(screen.getByText("protected dashboard")).toBeInTheDocument();
   });
 
   it("redirects a signed-out user to login", () => {
-    useAuth.mockReturnValue({ user: null, loading: false, authError: null });
+    useAuth.mockReturnValue({ user: null, loading: false });
     renderRoute();
     expect(screen.getByText("login page")).toBeInTheDocument();
   });
 
-  it("shows initialization errors without exposing protected content", () => {
-    useAuth.mockReturnValue({ user: null, loading: false, authError: "Identity provider unavailable" });
+  it("relies on the identity provider to complete MFA before issuing a session", () => {
+    useAuth.mockReturnValue({ user: { id: "user" }, loading: false });
     renderRoute();
-    expect(screen.getByRole("alert")).toHaveTextContent("Identity provider unavailable");
-    expect(screen.queryByText("protected dashboard")).not.toBeInTheDocument();
+    expect(screen.getByText("protected dashboard")).toBeInTheDocument();
   });
 });

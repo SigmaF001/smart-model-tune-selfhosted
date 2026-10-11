@@ -1,0 +1,14 @@
+# Package a verified `npm run build` output for the server's architecture.
+FROM nginxinc/nginx-unprivileged:1.30.5-alpine3.24
+
+ENV ENGINE_UPSTREAM_SCHEME=http \
+    ENGINE_UPSTREAM=slm-edge:80 \
+    ENGINE_UPSTREAM_HOST=edge \
+    READY_UPSTREAM_SCHEME=http \
+    READY_UPSTREAM=slm-api:8000 \
+    AUTH_UPSTREAM=keycloak:8080
+
+COPY dist /usr/share/nginx/html
+COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
+
+EXPOSE 8080

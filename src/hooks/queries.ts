@@ -1,15 +1,26 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import * as datasets from '@/api/endpoints/datasets'
+import * as analytics from '@/api/endpoints/analytics'
+import * as apiKeys from '@/api/endpoints/apiKeys'
+import * as deployments from '@/api/endpoints/deployments'
 import * as evaluations from '@/api/endpoints/evaluations'
 import * as inference from '@/api/endpoints/inference'
 import * as meta from '@/api/endpoints/meta'
 import * as models from '@/api/endpoints/models'
 import * as projects from '@/api/endpoints/projects'
 import * as trainings from '@/api/endpoints/trainings'
+import * as templates from '@/api/endpoints/templates'
 import * as usage from '@/api/endpoints/usage'
 import type {
   ArtifactFormat,
+  AnalyticsResponse,
+  ApiKey,
+  ApiKeyCreated,
+  DatasetInsights,
+  Deployment,
+  DeploymentCreate,
+  DeploymentUpdate,
   AuditEvent,
   Dataset,
   Evaluation,
@@ -27,6 +38,8 @@ import type {
   Training,
   TrainingMetrics,
   TrainingRequest,
+  Template,
+  TemplateRatingResponse,
   UsageEvent,
   UsageSummaryResponse,
 } from '@/api/types'
@@ -48,6 +61,7 @@ export const queryKeys = {
   datasets: (projectId?: string) => ['datasets', { projectId: projectId ?? null }] as const,
   dataset: (id: string) => ['datasets', 'detail', id] as const,
   datasetPreview: (id: string) => ['datasets', 'preview', id] as const,
+  datasetInsights: (id: string) => ['datasets', 'insights', id] as const,
   trainings: (projectId?: string, status?: JobStatus) =>
     ['trainings', { projectId: projectId ?? null, status: status ?? null }] as const,
   training: (id: string) => ['trainings', 'detail', id] as const,
@@ -65,6 +79,10 @@ export const queryKeys = {
   projectActivity: (id: string) => ['projects', id, 'activity'] as const,
   projectUsage: (id: string) => ['projects', id, 'usage'] as const,
   trainingMetrics: (id: string) => ['trainings', 'metrics', id] as const,
+  analytics: (params: { from?: string; to?: string; project_id?: string }) => ['analytics', params] as const,
+  deployments: (params: { status?: JobStatus; limit?: number; offset?: number }) => ['deployments', params] as const,
+  apiKeys: (params: { limit?: number; offset?: number }) => ['api-keys', params] as const,
+  templates: (params: { category?: string; featured?: boolean; search?: string; sort?: string; limit?: number; offset?: number }) => ['templates', params] as const,
 }
 
 // --- Projects: queries -------------------------------------------------------
@@ -157,6 +175,14 @@ export function useDatasetPreview(id: string, limit = 20, enabled = true) {
   return useQuery({
     queryKey: [...queryKeys.datasetPreview(id), limit],
     queryFn: () => datasets.previewDataset(id, limit),
+    enabled,
+  })
+}
+
+export function useDatasetInsights(id: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.datasetInsights(id),
+    queryFn: (): Promise<DatasetInsights> => datasets.getDatasetInsights(id),
     enabled,
   })
 }
@@ -441,5 +467,124 @@ export function useSdgPipelineModels() {
     queryKey: queryKeys.sdgPipelineModels,
     queryFn: meta.getSdgPipelineModels,
     staleTime: Infinity,
+  })
+}
+
+async function fetchAllPages<T>(fetchPage: (page: { limit: number; offset: number }) => Promise<Page<T>>): Promise<Page<T>> {
+  const limit = 200
+  const items: T[] = []
+  let offset = 0
+  let first: Page<T> | undefined
+  let hasMore = true
+  while (hasMore) {
+    const page = await fetchPage({ limit, offset })
+    first ??= page
+    items.push(...page.items)
+    offset += page.items.length
+    hasMore = page.items.length > 0 && offset < page.total
+  }
+  return { items, total: first?.total ?? 0, limit, offset: 0 }
+}
+
+/** Fetch every server page before ranking, because each API response is capped
+ * at 200 rows and partial results would produce an incorrect leaderboard. */
+export function useLeaderboardResources() {
+  return useQuery({
+    queryKey: ['leaderboard', 'resources'],
+    queryFn: async () => {
+      const [modelsPage, trainingsPage, projectsPage, evaluationsPage] = await Promise.all([
+        fetchAllPages((page) => models.listModels(page)),
+        fetchAllPages((page) => trainings.listTrainings(page)),
+        fetchAllPages((page) => projects.listProjects(page)),
+        fetchAllPages((page) => evaluations.listEvaluations(page)),
+      ])
+      return { modelsPage, trainingsPage, projectsPage, evaluationsPage }
+    },
+  })
+}
+
+// --- Newly self-hosted product resources ------------------------------------
+
+export function useAnalytics(params: { from?: string; to?: string; project_id?: string } = {}) {
+  return useQuery({
+    queryKey: queryKeys.analytics(params),
+    queryFn: (): Promise<AnalyticsResponse> => analytics.getAnalytics(params),
+  })
+}
+
+export function useDeployments(params: { status?: JobStatus; limit?: number; offset?: number } = {}) {
+  return useQuery({
+    queryKey: queryKeys.deployments(params),
+    queryFn: (): Promise<Page<Deployment>> => deployments.listDeployments(params),
+  })
+}
+
+export function useCreateDeployment() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: DeploymentCreate) => deployments.createDeployment(body, crypto.randomUUID()),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['deployments'] }),
+  })
+}
+
+export function useUpdateDeployment() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: DeploymentUpdate }) => deployments.updateDeployment(id, body),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['deployments'] }),
+  })
+}
+
+export function useStopDeployment() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deployments.stopDeployment(id),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['deployments'] }),
+  })
+}
+
+export function useDeleteDeployment() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deployments.deleteDeployment(id),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['deployments'] }),
+  })
+}
+
+export function useApiKeys(params: { limit?: number; offset?: number } = {}) {
+  return useQuery({
+    queryKey: queryKeys.apiKeys(params),
+    queryFn: (): Promise<Page<ApiKey>> => apiKeys.listApiKeys(params),
+  })
+}
+
+export function useCreateApiKey() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (name: string): Promise<ApiKeyCreated> => apiKeys.createApiKey({ name }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['api-keys'] }),
+  })
+}
+
+export function useRevokeApiKey() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => apiKeys.revokeApiKey(id),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['api-keys'] }),
+  })
+}
+
+export function useTemplates(params: { category?: string; featured?: boolean; search?: string; sort?: 'popular' | 'rating' | 'forks'; limit?: number; offset?: number } = {}) {
+  return useQuery({
+    queryKey: queryKeys.templates(params),
+    queryFn: (): Promise<Page<Template>> => templates.listTemplates(params),
+  })
+}
+
+export function useRateTemplate() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, rating }: { id: string; rating: number }): Promise<TemplateRatingResponse> => templates.rateTemplate(id, rating),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['templates'] }),
   })
 }

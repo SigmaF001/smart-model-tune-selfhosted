@@ -1,0 +1,11 @@
+# Copy to the remote backend and merge with its docker-compose.yml.
+# Also copy docker/keycloak-jwks.json to the remote backend's docker/ directory.
+services:
+  api:
+    environment:
+      OIDC_ISSUER: ${TUNELAB_OIDC_ISSUER:-http://localhost:5173/auth/realms/tunelab}
+      OIDC_JWKS_URL: file:///run/tunelab/keycloak-jwks.json
+      OIDC_AUDIENCE: tunelab-api
+      AUTH_REQUIRED: "true"
+    volumes:
+      - ./docker/keycloak-jwks.json:/run/tunelab/keycloak-jwks.json:ro
